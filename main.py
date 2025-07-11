@@ -185,10 +185,97 @@ def redraw_queue():
     for slot in queue_slots:
         slot['frame'].pack(fill=tk.X, pady=3)
 
-# --- UI Setup ---
+# --- Custom Queue Save/Load Setup ---
+CUSTOM_FOLDER = os.path.join(os.path.dirname(__file__), "custom")
+os.makedirs(CUSTOM_FOLDER, exist_ok=True)
+
+# Ensure UI root is initialized before use
 root = tk.Tk()
 root.title("Selenium Function Queue Runner")
 root.geometry("800x600")
+
+mode_frame = tk.Frame(root)
+mode_frame.pack(pady=5)
+tk.Label(mode_frame, text="Mode:").pack(side=tk.LEFT)
+mode = tk.StringVar(value="manual")
+tk.Radiobutton(mode_frame, text="Manual", variable=mode, value="manual").pack(side=tk.LEFT)
+tk.Radiobutton(mode_frame, text="Custom", variable=mode, value="custom").pack(side=tk.LEFT)
+
+save_frame = tk.Frame(root)
+save_frame.pack(pady=5)
+tk.Label(save_frame, text="Custom Script Name:").pack(side=tk.LEFT)
+save_name_entry = tk.Entry(save_frame, width=30)
+save_name_entry.pack(side=tk.LEFT, padx=5)
+
+def save_current_queue():
+    name = save_name_entry.get().strip()
+    if not name:
+        messagebox.showerror("Error", "Please enter a name for the custom script.")
+        return
+    data = []
+    for slot in queue_slots:
+        data.append({
+            "func": slot['func_var'].get(),
+            "enabled": slot['enabled_var'].get(),
+            "delay": slot['delay_var'].get(),
+            "inputs": {k: v.get() for k, v in slot['inputs'].items()}
+        })
+    with open(os.path.join(CUSTOM_FOLDER, f"{name}.json"), 'w') as f:
+        import json
+        json.dump(data, f, indent=2)
+    messagebox.showinfo("Saved", f"Custom script '{name}' saved.")
+
+tk.Button(save_frame, text="💾 Save Queue", command=save_current_queue).pack(side=tk.LEFT)
+
+# --- Custom Queue Dropdown Setup ---
+custom_dropdown_var = tk.StringVar()
+custom_dropdown = None
+
+def load_custom_queue(*_):
+    import json
+    file = custom_dropdown_var.get()
+    path = os.path.join(CUSTOM_FOLDER, file)
+    if not os.path.isfile(path):
+        messagebox.showerror("Error", f"Custom script '{file}' not found.")
+        return
+    with open(path, 'r') as f:
+        data = json.load(f)
+    for widget in queue_container.winfo_children():
+        widget.destroy()
+    queue_slots.clear()
+    for entry in data:
+        add_queue_slot()
+        slot = queue_slots[-1]
+        slot['func_var'].set(entry['func'])
+        slot['enabled_var'].set(entry['enabled'])
+        slot['delay_var'].set(entry['delay'])
+        update_inputs(slot['func_var'], slot['input_frame'], None)
+        for k, v in entry['inputs'].items():
+            if k in slot['inputs']:
+                slot['inputs'][k].delete(0, tk.END)
+                slot['inputs'][k].insert(0, v)
+
+
+def toggle_custom_dropdown(*_):
+    global custom_dropdown
+    if mode.get() == "custom":
+        if custom_dropdown is None:
+            dropdown_frame = tk.Frame(root)
+            dropdown_frame.pack(pady=5)
+            tk.Label(dropdown_frame, text="Load Custom Script:").pack(side=tk.LEFT)
+            files = [f for f in os.listdir(CUSTOM_FOLDER) if f.endswith(".json")]
+            if not files:
+                files = ["<no scripts>"]
+            custom_dropdown = tk.OptionMenu(dropdown_frame, custom_dropdown_var, *files, command=load_custom_queue)
+            custom_dropdown.pack(side=tk.LEFT)
+    elif custom_dropdown:
+        custom_dropdown.destroy()
+        custom_dropdown = None
+
+mode.trace_add("write", toggle_custom_dropdown)
+
+# --- UI Setup ---
+# root setup moved earlier to prevent undefined errors
 
 frame_browser = tk.Frame(root)
 frame_browser.pack(pady=5)
