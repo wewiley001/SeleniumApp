@@ -1,2 +1,2 @@
-# SeleniumApp
-A quick user-friendly app made to use Selenium commands for Web automation testing. 
+# SeleniumApp - Selenite 
+As a proof of concept, I made a user-friendly app that allows for the creation of web automation testing scripts using Selenium commands without needing to write code. 
